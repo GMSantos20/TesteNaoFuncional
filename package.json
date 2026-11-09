@@ -1,0 +1,12 @@
+{
+  "name": "demo-disponibilidade-usabilidade",
+  "version": "1.0.0",
+  "description": "Demonstrador de Teste Não-Funcional de Disponibilidade com Alta Usabilidade",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demonstração: Teste de Disponibilidade com Alta Usabilidade</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- CABEÇALHO -->
+    <header class="header">
+      <div class="header-titles">
+        <h1>Teste Não-Funcional: Disponibilidade & Usabilidade</h1>
+        <p>Demonstração prática de <strong>Tolerância a Falhas</strong>, <strong>Observabilidade (Health Check)</strong> e <strong>Degradação Graciosa</strong>.</p>
+      </div>
+    </header>
+
+    <!-- BARRA DE STATUS DE DISPONIBILIDADE EM TEMPO REAL -->
+    <section class="status-banner" id="status-banner" aria-live="polite">
+      <div class="status-indicator">
+        <span class="pulse-dot" id="pulse-dot"></span>
+        <span class="status-label">Status da Aplicação:</span>
+        <strong class="status-text" id="status-text">Conectando...</strong>
+        <span class="http-badge" id="http-badge">HTTP ---</span>
+      </div>
+
+      <div class="status-actions">
+        <span class="uptime-text">Uptime: <strong id="uptime-display">--</strong></span>
+        <button id="btn-toggle" class="btn btn-toggle" type="button" aria-label="Alternar disponibilidade do sistema">
+          🔴 Simular Queda do Banco
+        </button>
+      </div>
+    </section>
+
+    <!-- ÁREA DE NOTIFICAÇÃO / FEEDBACK DE USABILIDADE (HEURÍSTICA 9) -->
+    <div id="alert-box" class="alert-box hidden" role="alert" aria-live="assertive"></div>
+
+    <!-- PAINEL PRINCIPAL COM DUAS COLUNAS -->
+    <div class="main-grid">
+      <!-- COLUNA 1: APLICAÇÃO DO USUÁRIO (ALTA USABILIDADE) -->
+      <section class="card app-card">
+        <div class="card-header">
+          <h2>Bloco de Notas Rápidas</h2>
+          <span class="card-sub">Exemplo de interface com usabilidade intuitiva</span>
+        </div>
+
+        <!-- Formulário com Prevenção de Erros (Heurística 5) -->
+        <form id="task-form" class="task-form" novalidate>
+          <div class="input-group">
+            <label for="task-input" class="sr-only">Digite uma nova anotação:</label>
+            <input 
+              type="text" 
+              id="task-input" 
+              placeholder="Digite uma nova anotação..." 
+              autocomplete="off"
+              required 
+            />
+            <button type="submit" id="btn-add" class="btn btn-primary">
+              Adicionar
+            </button>
+          </div>
+          <span class="input-hint" id="input-hint">Pressione Enter ou clique em Adicionar.</span>
+        </form>
+
+        <!-- Lista de itens com feedback de carregamento -->
+        <div class="tasks-container">
+          <ul id="tasks-list" class="tasks-list" aria-label="Lista de notas">
+            <!-- Itens inseridos dinamicamente -->
+          </ul>
+        </div>
+      </section>
+
+      <!-- COLUNA 2: PAINEL DIDÁTICO DO SEMINÁRIO (O QUE ESTÁ SENDO TESTADO) -->
+      <aside class="card educational-card">
+        <div class="card-header">
+          <h2>O que este teste avalia?</h2>
+          <span class="card-sub">Fundamentação para o seminário</span>
+        </div>
+
+        <div class="edu-block">
+          <h3>1. Disponibilidade (ISO/IEC 25010)</h3>
+          <p>
+            O endpoint <a href="/health" target="_blank" class="link-health"><code>GET /health</code></a> atua como um <strong>probe de monitoramento</strong>.
+            Quando o sistema cai, ele retorna <code>HTTP 503</code> para que ferramentas de nuvem (Kubernetes, AWS) saibam que a instância está instável.
+          </p>
+        </div>
+
+        <div class="edu-block">
+          <h3>2. Usabilidade sob Falha (Heurísticas de Nielsen)</h3>
+          <ul>
+            <li><strong>Sem Tela Branca:</strong> A aplicação não quebra com erro 500 nem dá crash no servidor.</li>
+            <li><strong>Preservação de Dados:</strong> Se a anotação falhar ao enviar, o texto digitado <strong>permanece no campo</strong> para você não ter retrabalho.</li>
+            <li><strong>Mensagens Claras:</strong> Explica o que houve em português claro, em vez de mostrar códigos confusos como <code>ECONNREFUSED</code>.</li>
+          </ul>
+        </div>
+
+        <div class="metrics-summary">
+          <div class="metric-item">
+            <span class="metric-name">Taxa de Disponibilidade (SLA):</span>
+            <strong class="metric-val" id="metric-sla">100%</strong>
+          </div>
+          <div class="metric-item">
+            <span class="metric-name">Requisições Atendidas:</span>
+            <span class="metric-val" id="metric-requests">0</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
