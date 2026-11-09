@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const metricSla = document.getElementById('metric-sla');
   const metricRequests = document.getElementById('metric-requests');
+  const metricLatency = document.getElementById('metric-latency');
+  const metricSecurity = document.getElementById('metric-security');
 
   let currentSystemHealthy = true;
 
@@ -54,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateMetrics();
   }
 
-  // 2. ATUALIZAR MÉTRICAS DE SLA NO PAINEL
+  // 2. ATUALIZAR MÉTRICAS DE SLA, DESEMPENHO E SEGURANÇA NO PAINEL
   async function updateMetrics() {
     try {
       const res = await fetch('/api/metrics');
@@ -62,6 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const metrics = await res.json();
         metricSla.textContent = metrics.availabilityRate;
         metricRequests.textContent = metrics.totalRequests;
+        if (metricLatency && typeof metrics.avgResponseTimeMs === 'number') {
+          metricLatency.textContent = `${metrics.avgResponseTimeMs}ms (P95: ${metrics.p95ResponseTimeMs}ms)`;
+        }
+        if (metricSecurity && typeof metrics.blockedSecurityRequests === 'number') {
+          metricSecurity.textContent = metrics.blockedSecurityRequests;
+        }
       }
     } catch (e) {}
   }
@@ -146,14 +154,21 @@ document.addEventListener('DOMContentLoaded', () => {
         showAlert('success', 'Anotação salva com sucesso!');
         await loadTasks();
       } else {
-        // FALHA / INDISPONIBILIDADE (DEGRADAÇÃO GRACIOSA):
+        // FALHA / INDISPONIBILIDADE (DEGRADAÇÃO GRACIOSA) OU BLOQUEIO DE SEGURANÇA:
         const errData = await res.json().catch(() => ({}));
 
-        // USABILIDADE: O texto digitado NÃO é apagado do campo
-        showAlert(
-          'danger',
-          `<strong>⚠️ Degradação Graciosa (HTTP ${res.status}):</strong> ${errData.message || 'Serviço temporariamente indisponível.'}<br><small>💡 Seu texto continuou preenchido no campo abaixo para você não perder o que escreveu.</small>`
-        );
+        if (res.status === 400 || res.status === 413 || res.status === 429) {
+          showAlert(
+            'danger',
+            `<strong>🛡️ Bloqueio de Segurança (HTTP ${res.status}):</strong> ${errData.message || 'Entrada rejeitada pelas regras de segurança.'}<br><small>💡 A camada de proteção (WAF/Sanitização) impediu que o payload malicioso afetasse o sistema.</small>`
+          );
+        } else {
+          // USABILIDADE: O texto digitado NÃO é apagado do campo
+          showAlert(
+            'danger',
+            `<strong>⚠️ Degradação Graciosa (HTTP ${res.status}):</strong> ${errData.message || 'Serviço temporariamente indisponível.'}<br><small>💡 Seu texto continuou preenchido no campo abaixo para você não perder o que escreveu.</small>`
+          );
+        }
       }
     } catch (err) {
       showAlert('danger', 'Falha de comunicação com o servidor.');

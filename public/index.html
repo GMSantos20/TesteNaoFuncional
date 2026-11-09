@@ -95,6 +95,20 @@
           </ul>
         </div>
 
+        <div class="edu-block">
+          <h3>3. Desempenho (ISO/IEC 25010)</h3>
+          <p>
+            Monitoramento do tempo de processamento (<code>performance.now()</code>), aferição de <strong>Latência Média e Percentil P95</strong>, vazão (<em>Throughput</em>) e estabilidade de memória RAM sob carga concorrente.
+          </p>
+        </div>
+
+        <div class="edu-block">
+          <h3>4. Segurança (ISO/IEC 25010 &amp; OWASP)</h3>
+          <p>
+            Defesa ativa contra injeção de código (<strong>XSS / SQLi</strong>), <em>Security Headers</em> (CSP, Anti-Clickjacking), limite de payload (<code>HTTP 413</code>), controle de acesso (<code>401/403</code>) e <em>Rate Limiting</em> (<code>HTTP 429</code>).
+          </p>
+        </div>
+
         <div class="metrics-summary">
           <div class="metric-item">
             <span class="metric-name">Taxa de Disponibilidade (SLA):</span>
@@ -103,6 +117,14 @@
           <div class="metric-item">
             <span class="metric-name">Requisições Atendidas:</span>
             <span class="metric-val" id="metric-requests">0</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-name">Latência Média / P95:</span>
+            <span class="metric-val" id="metric-latency">-- ms</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-name">Ameaças Bloqueadas (Segurança):</span>
+            <strong class="metric-val" id="metric-security">0</strong>
           </div>
         </div>
       </aside>
