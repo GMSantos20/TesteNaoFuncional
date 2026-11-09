@@ -4,7 +4,10 @@
   "description": "Demonstrador de Teste Não-Funcional de Disponibilidade com Alta Usabilidade",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:performance": "node performance-test.js",
+    "test:security": "node security-test.js",
+    "test:stress": "node stress-test.js"
   },
   "dependencies": {
     "express": "^4.19.2"

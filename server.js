@@ -4,8 +4,37 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Remove cabeçalho padrão do Express por segurança
+app.disable('x-powered-by');
+
+// Histórico simples de tempos de resposta (em ms)
+const responseTimes = [];
+
+// Middleware de cabeçalhos de segurança e medição de tempo
+app.use((req, res, next) => {
+  const start = performance.now();
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+  );
+
+  res.on('finish', () => {
+    const duration = Number((performance.now() - start).toFixed(2));
+    responseTimes.push(duration);
+    if (responseTimes.length > 200) {
+      responseTimes.shift();
+    }
+  });
+
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
+app.use(express.json({ limit: '10kb' }));
 
 // Estado de disponibilidade simulado (true = UP, false = DOWN)
 let isSystemHealthy = true;
@@ -16,12 +45,32 @@ let tasks = [
   { id: 2, text: "Demonstrar probe de monitoramento (/health)", createdAt: "10:05" }
 ];
 
-// Métricas de disponibilidade para a apresentação
+// Métricas para a apresentação
 const metrics = {
   totalRequests: 0,
   successfulRequests: 0,
-  failedRequests: 0
+  failedRequests: 0,
+  blockedSecurityRequests: 0
 };
+
+// Verifica se o texto possui tentativa de XSS ou SQL Injection
+function hasMaliciousInput(text) {
+  const lower = text.toLowerCase();
+  const blockedTerms = [
+    '<script',
+    '</script>',
+    'javascript:',
+    'onerror=',
+    'onload=',
+    '<iframe',
+    '<img',
+    'drop table',
+    "' or '1'='1",
+    'union select'
+  ];
+
+  return blockedTerms.some(term => lower.includes(term));
+}
 
 // 1. Endpoint de Health Check (Observabilidade / Monitoramento de Disponibilidade)
 app.get('/health', (req, res) => {
@@ -82,7 +131,7 @@ app.get('/api/tasks', (req, res) => {
   res.json(tasks);
 });
 
-// 4. Endpoint para adicionar tarefa (com tratamento gracioso se DOWN)
+// 4. Endpoint para adicionar tarefa (com tratamento gracioso se DOWN e validação de segurança)
 app.post('/api/tasks', (req, res) => {
   metrics.totalRequests++;
 
@@ -97,10 +146,27 @@ app.post('/api/tasks', (req, res) => {
 
   const { text } = req.body;
   if (!text || !text.trim()) {
-    metrics.failedRequests++;
     return res.status(400).json({
       error: "Entrada Inválida",
       message: "O texto da anotação não pode ficar vazio."
+    });
+  }
+
+  if (text.length > 300) {
+    metrics.blockedSecurityRequests++;
+    metrics.successfulRequests++;
+    return res.status(400).json({
+      error: "Limite Excedido",
+      message: "O texto excede o limite máximo de 300 caracteres."
+    });
+  }
+
+  if (hasMaliciousInput(text)) {
+    metrics.blockedSecurityRequests++;
+    metrics.successfulRequests++;
+    return res.status(400).json({
+      error: "Bloqueio de Segurança",
+      message: "Tentativa de injeção de código (XSS / SQL Injection) bloqueada pelo servidor."
     });
   }
 
@@ -139,11 +205,102 @@ app.get('/api/metrics', (req, res) => {
     ? 100 
     : ((metrics.successfulRequests / metrics.totalRequests) * 100).toFixed(1);
 
+  let avgResponseTimeMs = 0;
+  let p95ResponseTimeMs = 0;
+
+  if (responseTimes.length > 0) {
+    const sum = responseTimes.reduce((acc, time) => acc + time, 0);
+    avgResponseTimeMs = Number((sum / responseTimes.length).toFixed(2));
+
+    const sorted = [...responseTimes].sort((a, b) => a - b);
+    const index95 = Math.floor(sorted.length * 0.95);
+    p95ResponseTimeMs = sorted[index95] || sorted[sorted.length - 1];
+  }
+
+  const memoryUsageMB = Number((process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2));
+
   res.json({
     ...metrics,
     availabilityRate: `${availabilityRate}%`,
-    isSystemHealthy
+    isSystemHealthy,
+    avgResponseTimeMs,
+    p95ResponseTimeMs,
+    memoryUsageMB
   });
+});
+
+// 7. Endpoint administrativo protegido por Token (Teste de Controle de Acesso)
+app.get('/api/admin/audit', (req, res) => {
+  const authHeader = req.headers['authorization'];
+
+  if (!authHeader) {
+    metrics.blockedSecurityRequests++;
+    return res.status(401).json({
+      error: "Não Autenticado",
+      message: "Token de autenticação não informado."
+    });
+  }
+
+  if (authHeader !== 'Bearer token-admin-123') {
+    metrics.blockedSecurityRequests++;
+    return res.status(403).json({
+      error: "Acesso Negado",
+      message: "Você não tem permissão para acessar este recurso."
+    });
+  }
+
+  res.json({
+    status: "OK",
+    blockedSecurityRequests: metrics.blockedSecurityRequests
+  });
+});
+
+// 8. Endpoint de Login com limite de tentativas (Teste de Rate Limit / Força Bruta)
+let loginAttempts = 0;
+let lastAttemptTime = Date.now();
+
+app.post('/api/login', (req, res) => {
+  const now = Date.now();
+
+  // Reinicia contador após 10 segundos
+  if (now - lastAttemptTime > 10000) {
+    loginAttempts = 0;
+  }
+  lastAttemptTime = now;
+
+  const { username, password } = req.body;
+
+  if (username === 'admin' && password === '123456') {
+    loginAttempts = 0;
+    return res.json({ status: "Logado com sucesso", token: "token-admin-123" });
+  }
+
+  loginAttempts++;
+
+  if (loginAttempts > 5) {
+    metrics.blockedSecurityRequests++;
+    return res.status(429).json({
+      error: "Muitas Tentativas",
+      message: "Bloqueado temporariamente por excesso de tentativas (Rate Limit)."
+    });
+  }
+
+  res.status(401).json({
+    error: "Credenciais Inválidas",
+    message: "Usuário ou senha incorretos."
+  });
+});
+
+// Tratamento para payload JSON maior que o limite de 10kb
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') {
+    metrics.blockedSecurityRequests++;
+    return res.status(413).json({
+      error: "Payload Muito Grande",
+      message: "A requisição ultrapassou o limite de 10KB."
+    });
+  }
+  next(err);
 });
 
 app.listen(PORT, () => {
